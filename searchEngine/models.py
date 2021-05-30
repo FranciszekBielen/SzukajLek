@@ -11,18 +11,30 @@ class TimeStampedModel(models.Model):
 class MedicineName(TimeStampedModel):
     name = models.CharField(max_length=200)
 
+    def __str__(self):
+        return self.name
+
 
 class MedicineForm(TimeStampedModel):
     name = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.name
 
 
 class MedicineDose(TimeStampedModel):
     unit = models.CharField(max_length=200)
     value = models.CharField(max_length=200, default='')
 
+    def __str__(self):
+        return self.value + " " + self.unit
+
 
 class ActiveSubstance(TimeStampedModel):
     name = models.CharField(max_length=200, default='')
+
+    def __str__(self):
+        return self.name
 
 
 class PackageContent(TimeStampedModel):
@@ -30,17 +42,29 @@ class PackageContent(TimeStampedModel):
     value = models.CharField(max_length=200, default='')
     original_content = models.CharField(max_length=200, default='')
 
+    def __str__(self):
+        return self.original_content
+
 
 class EAN(TimeStampedModel):
     value = models.IntegerField()
+
+    def __str__(self):
+        return str(self.value)
 
 
 class Refund(TimeStampedModel):
     name = models.CharField(max_length=200)
 
+    def __str__(self):
+        return self.name
+
 
 class Surcharge(TimeStampedModel):
     value = models.FloatField(default=0)
+
+    def __str__(self):
+        return str(self.value)
 
 
 # Nazwa leku, Postać leku, Dawka substancji czynnej w leku, Zawartość opakowania, Nazwa substancji czynnej,

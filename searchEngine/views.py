@@ -1,6 +1,13 @@
 from django.http import HttpResponse
+from django.views.generic import ListView
+import django_tables2 as tables
+from django_tables2 import SingleTableView
+import itertools
+from django_filters.views import FilterView
+from django_tables2.views import SingleTableMixin
 from .models import *
 import re
+import django_filters
 
 import pandas as pd
 
@@ -46,7 +53,9 @@ def get_dose(tab):
         cell.pop(0)
         unit = " ".join(cell)
 
+    value = value.strip()
     value = value.replace(',', '.')
+    unit = unit.strip()
     dose = MedicineDose(unit=unit, value=value)
     dose.save()
     return dose
@@ -68,7 +77,9 @@ def get_package_content(tab):
     elif unit == 'butelka' or unit == 'butelki':
         unit = 'but.'
 
+    value = value.strip()
     value = value.replace(',', '.')
+    unit = unit.strip()
     content = PackageContent(unit=unit, value=value, original_content=orginal)
     content.save()
     return content
@@ -100,6 +111,10 @@ def get_ean(cell):
 
 
 def get_refund(cell):
+    cell = cell.replace("<1>", "")
+    cell = cell.replace("<2>", "")
+    if cell == 'x':
+        cell = ''
     name = Refund(name=cell)
     name.save()
     return name
@@ -142,9 +157,103 @@ def parse_xlsx():
         tab = row['Wysokość dopłaty świadczeniobiorcy']
         surcharge = get_surcharge(tab)
 
-        new_row = RowA(name=name, form=form, dose=dose, substance=substance, 
+        new_row = RowA(name=name, form=form, dose=dose, substance=substance,
                        content=content, ean=ean, refund=refund, surcharge=surcharge)
         new_row.save()
-    
-def index(request):
-    return HttpResponse("Hello, world!")
+
+class RowTable(tables.Table):
+    class Meta:
+        exclude = ['created_on']
+        model = RowA
+        template_name = "django_tables2/bootstrap.html"
+
+    def order_name(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('name__name')
+        else:
+            queryset = queryset.order_by('-name__name')
+
+        return queryset, True
+
+    def order_form(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('form__name')
+        else:
+            queryset = queryset.order_by('-form__name')
+
+        return queryset, True
+
+    def order_dose(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('dose__unit', 'dose__value')
+        else:
+            queryset = queryset.order_by('-dose__unit', '-dose__value')
+
+        return queryset, True
+
+    def order_ean(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('ean__value')
+        else:
+            queryset = queryset.order_by('-ean__value')
+
+        return queryset, True
+
+    def order_substance(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('substance__name')
+        else:
+            queryset = queryset.order_by('-substance__name')
+
+        return queryset, True
+
+    def order_content(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('content__unit', 'content__value')
+        else:
+            queryset = queryset.order_by('-content__unit', '-content__value')
+
+        return queryset, True
+
+    def order_surcharge(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('surcharge__value')
+        else:
+            queryset = queryset.order_by('-surcharge__value')
+
+        return queryset, True
+
+    def order_refund(self, queryset, is_descending):
+        if not is_descending:
+            queryset = queryset.order_by('refund__name')
+        else:
+            queryset = queryset.order_by('-refund__name')
+
+        return queryset, True
+
+
+class RowFilter(django_filters.FilterSet):
+    name__name = django_filters.CharFilter(lookup_expr='icontains')
+    form__name = django_filters.CharFilter(lookup_expr='icontains')
+    substance__name = django_filters.CharFilter(lookup_expr='icontains')
+    refund__name = django_filters.CharFilter(lookup_expr='icontains')
+
+    surcharge__value = django_filters.NumberFilter()
+    surcharge__value__gt = django_filters.NumberFilter(field_name='surcharge__value', lookup_expr='gt')
+    surcharge__value__lt = django_filters.NumberFilter(field_name='surcharge__value', lookup_expr='lt')
+
+    ean__value = django_filters.NumberFilter()
+    ean__value__gt = django_filters.NumberFilter(field_name='ean__value', lookup_expr='gt')
+    ean__value__lt = django_filters.NumberFilter(field_name='ean__value', lookup_expr='lt')
+
+    class Meta:
+        model = RowA
+        fields = ['name__name', 'form__name', 'substance__name', 'refund__name', 'surcharge__value', 'ean__value']
+
+
+class FilteredRowListView(SingleTableMixin, FilterView):
+    table_class = RowTable
+    model = RowA
+    template_name = "searchEngine/rows.html"
+
+    filterset_class = RowFilter
